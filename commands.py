@@ -1,10 +1,8 @@
 import click
-from app import app
 from exts import db
-from models.user import PermissionEnum, PermissionModel, RoleModel
+from models.user import PermissionEnum, PermissionModel, RoleModel, UserModel
 
 
-@app.cli.command("create-permission")
 def create_permission():
     for permission_name in dir(PermissionEnum):
         if permission_name.startswith("__"):
@@ -15,7 +13,7 @@ def create_permission():
     click.echo("权限添加成功！")
 
 
-@app.cli.command("create-role")
+
 def create_role():
     # 稽查
     inspect = RoleModel(name="稽查", desc="负责审核帖子和评论是否合法合规!")
@@ -39,3 +37,27 @@ def create_role():
     db.session.add_all([inspect, operator, administrator])
     db.session.commit()
     click.echo("角色添加成功")
+
+
+def create_test_user():
+    admin_role = RoleModel.query.filter_by(name="管理员").first()
+    zhangsan = UserModel(username="张三", email="123465@163.com", password="0000000", is_staff=True, role=admin_role)
+
+    operator_role = RoleModel.query.filter_by(name="运营").first()
+    hanxue = UserModel(username="韩雪", email="abcdef@163.com", password="11111111", is_staff=True, role=operator_role)
+
+    inspect_role = RoleModel.query.filter_by(name="稽查").first()
+    laowang = UserModel(username="老王", email="789456123@qq.com", password="22222222", is_staff=True, role=inspect_role)
+
+    # 添加用户到会话
+    db.session.add_all([zhangsan, hanxue, laowang])
+
+    try:
+        db.session.commit()
+        click.echo("测试用户添加成功")
+    except Exception as e:
+        db.session.rollback()
+        click.echo(f"测试用户添加失败: {str(e)}")
+
+def test():
+    click.echo("test")
