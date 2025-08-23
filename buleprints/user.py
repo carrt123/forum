@@ -1,8 +1,8 @@
-from flask import Blueprint, render_template, request, current_app, url_for, redirect, flash
+from flask import Blueprint, render_template, request, current_app, url_for, redirect, flash, session
 from exts import mail, cache, db
 import random
 from utils.restful import response
-from forms.user import RegisterForm
+from forms.user import RegisterForm, LoginForm
 from models.user import UserModel
 
 bp = Blueprint("user", __name__, url_prefix='/user')
@@ -28,9 +28,29 @@ def register():
             return redirect(url_for('user.register'))
 
 
-@bp.route('/login')
+@bp.route('/login', methods=['GET', 'POST'])
 def login():
-    return "login"
+    if request.method == 'GET':
+        return render_template("front/login.html")
+    else:
+        form = LoginForm(request.form)
+        if form.validate():
+            email = form.email.data
+            password = form.password.data
+            remember = form.remember.data
+            user = UserModel.query.filter_by(email=email).first()
+            if user and user.check_password(password):
+                session['user_id'] = user.id
+                if remember:
+                    session.permanent = True
+                return redirect('/')
+            else:
+                flash("邮箱或密码错误!")
+                return redirect(url_for("user.login"))
+        else:
+            for message in form.messages:
+                flash(message)
+            return render_template("front/login.html")
 
 
 @bp.route("/mail/captcha")
@@ -46,6 +66,6 @@ def mail_captcha():
         # mail.send(message)
         current_app.celery.send_task("send_mail", (email, subject, body))
         cache.set(email, captcha, timeout=100)
-        return response.success()
+        return response.success("email has been send!")
     except Exception as e:
-        return f"邮件发送失败: {e}"
+        return f"failed to send email: {e}"
