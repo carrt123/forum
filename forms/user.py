@@ -2,7 +2,7 @@ from wtforms import Form, StringField, ValidationError, BooleanField
 from wtforms.validators import Email, EqualTo, Length
 from exts import cache
 from models.user import UserModel
-from baseform import BaseForm
+from .baseform import BaseForm
 
 
 class RegisterForm(BaseForm):
