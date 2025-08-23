@@ -1,6 +1,10 @@
 from enum import Enum
+
+from werkzeug.security import generate_password_hash, check_password_hash
+
 from exts import db
 from datetime import datetime
+from shortuuid import uuid
 
 
 class PermissionEnum(Enum):
@@ -31,3 +35,39 @@ class RoleModel(db.Model):
     desc = db.Column(db.String(200), nullable=True)
     create_time = db.Column(db.DateTime, default=datetime.utcnow)
     permission = db.relationship("PermissionModel", secondary=role_permission_table, backref="roles")
+
+
+class UserModel(db.Model):
+    __tablename__ = "user"
+    id = db.Column(db.String(100), primary_key=True, default=uuid)
+    username = db.Column(db.String(50), nullable=False)
+    _password = db.Column(db.String(200), nullable=False)
+    email = db.Column(db.String(50), nullable=False, unique=True)
+    avatar = db.Column(db.String(100))
+    signature = db.Column(db.String(100))
+    join_time = db.Column(db.DateTime, default=datetime.utcnow)
+    is_staff= db.Column(db.Boolean, default=False)
+
+    role_id = db.Column(db.Integer, db.ForeignKey("role.id"))
+    role = db.relationship("RoleModel", backref="users")
+
+    def __init__(self, *args, **kwargs):
+        if "password" in kwargs:
+            self.password = kwargs.get('password')
+            kwargs.pop("password")
+        super(UserModel, self).__init__(*args, **kwargs)
+
+    @property
+    def password(self):
+        return self._password
+
+    @password.setter
+    def password(self, raw_password):
+        self._password = generate_password_hash(raw_password)
+
+    def check_password(self, raw_password):
+        result = check_password_hash(self.password, raw_password)
+        return result
+
+    def has_permission(self, permission):
+        return permission in [permission.name for permission in self.role.permissions]
