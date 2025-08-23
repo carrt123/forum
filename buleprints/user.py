@@ -1,26 +1,51 @@
-from flask import Blueprint, render_template, request
-from flask_mail import Message
-from exts import mail
+from flask import Blueprint, render_template, request, current_app, url_for, redirect, flash
+from exts import mail, cache, db
 import random
+from utils.restful import response
+from forms.user import RegisterForm
+from models.user import UserModel
 
 bp = Blueprint("user", __name__, url_prefix='/user')
 
 
-@bp.route("/register")
+@bp.route("/register", methods=['GET', 'POST'])
 def register():
-    return render_template("register.html")
+    if request.method == 'GET':
+        return render_template("front/register.html")
+    else:
+        form = RegisterForm(request.form)
+        if form.validate():
+            email = form.email.data
+            username = form.username.data
+            password = form.password.data
+            user = UserModel(email=email, username=username, password=password)
+            db.session.add(user)
+            db.session.commit()
+            return redirect(url_for("user.login"))
+        else:
+            for message in form.messages:
+                flash(message)
+            return redirect(url_for('user.register'))
+
+
+@bp.route('/login')
+def login():
+    return "login"
 
 
 @bp.route("/mail/captcha")
 def mail_captcha():
-    # email = request.args.get("mail")
     email = "18770055812@163.com"
+    # email = request.args.get("mail")
     digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
     captcha = "".join(random.sample(digits, 4))
+    subject = "【python论坛】验证码"
     body = f"【python论坛】您的注册验证码是: {captcha}, 请勿告诉他人!"
-    message = Message(subject="python论坛验证码", recipients=[email], body=body)
+    # message = Message(subject="python论坛验证码", recipients=[email], body=body)
     try:
-        mail.send(message)
-        return "邮件发送成功"
+        # mail.send(message)
+        current_app.celery.send_task("send_mail", (email, subject, body))
+        cache.set(email, captcha, timeout=100)
+        return response.success()
     except Exception as e:
         return f"邮件发送失败: {e}"
